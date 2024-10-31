@@ -9,6 +9,10 @@ Ensure that you have the following installed on your system:
 - **Git**
 - **Docker**
 
+
+
+
+
 ## Installation
 
 ### Step 1: Update and Install Git
@@ -54,8 +58,6 @@ You should now be inside the Docker container, ready to proceed with WRF.
 ## Additional Information
 
 - **Repository**: This repository contains the necessary files and Docker configurations to set up and run the WRF model.
-- **License**: [Specify your project's license here]
-- **Contact**: For any questions, feel free to reach out to [Your Contact Information].
-```
+- **License**: No License, everyone can use it !
+- **Contact**: For any questions, feel free to reach out to my twitter @pradanadimass.
 
-This file is now ready for immediate use as `README.md` in your project. Let me know if you need any adjustments!
