@@ -1,7 +1,5 @@
-Here's a ready-to-use `README.md` file based on your requirements:
 
-```markdown
-# WRF Docker Setup
+# WRF Docker Setup Fast Install
 
 This repository provides a Dockerized setup for running the Weather Research and Forecasting (WRF) model. Follow the instructions below to install dependencies, clone this repository, and get the container running.
 
