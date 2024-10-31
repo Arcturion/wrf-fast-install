@@ -37,8 +37,8 @@ Make sure Docker is installed on your system. For detailed instructions on insta
 Navigate into the cloned repository directory and build the Docker image with the following command:
 
 ```bash
-cd wrf_docker
-docker build -t wrf_docker .
+cd wrf-fast-install
+docker build -t wrf-fast-install .
 ```
 
 ### Step 5: Run the Docker Container
@@ -46,7 +46,7 @@ docker build -t wrf_docker .
 Once the image has been built, run the container interactively:
 
 ```bash
-docker run -it wrf_docker
+docker run -it wrf-fast-install
 ```
 
 You should now be inside the Docker container, ready to proceed with WRF.
