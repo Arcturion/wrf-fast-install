@@ -34,7 +34,30 @@ git clone https://github.com/Arcturion/wrf-fast-install.git
 
 ### Step 3: Install Docker (if not already installed)
 
-Make sure Docker is installed on your system. For detailed instructions on installing Docker, visit the official [Docker installation guide](https://docs.docker.com/get-docker/).
+Make sure Docker is installed on your system. 
+```bash
+docker --version
+```
+
+to install, follow this code
+```bash
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
+```
+
+Then, check again
+```bash
+docker --version
+```
+
+If exist, activate and test
+```bash
+dockerd &
+```
+
+```bash
+docker run hello-world
+```
 
 ### Step 4: Build the Docker Image
 
