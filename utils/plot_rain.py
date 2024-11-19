@@ -52,14 +52,19 @@ import xarray as xr
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
+import pandas as pd
 
 ds = sorted_data
 
 # Assuming you want to plot the data for the first timestamp:
-time_index = 18  # Adjust this index to select a different timestamp
+time_index = 19  # Adjust this index to select a different timestamp
 
 rainc = ds['RAINC'].isel(Time=time_index) - ds['RAINC'].isel(Time=time_index-1)
 rainnc = ds['RAINNC'].isel(Time=time_index) - ds['RAINNC'].isel(Time=time_index - 1)
+
+# Format the datetime string
+timestamp = pd.Timestamp(ds.XTIME[time_index].values)
+formatted_time = timestamp.strftime('%Y-%m-%d %H.%M UTC')
 
 
 plt.figure(figsize=(10, 10))
@@ -71,9 +76,9 @@ ax.add_feature(cfeature.LAND)
 ax.add_feature(cfeature.OCEAN)
 ax.gridlines(draw_labels=True)
 
-(rainc+rainnc).plot(ax=ax, cmap='Blues', vmin=0, vmax=20, cbar_kwargs={'shrink': 0.5})
+(rainc+rainnc).plot(ax=ax, cmap='Blues', vmin=0, vmax=20, cbar_kwargs={'shrink': 0.5, 'pad': 0.1})
 
 # Set plot title
-plt.title('Precipitation at {}'.format(ds.XTIME[time_index].values))
+plt.title(f'Precipitation at {formatted_time}')
 
 plt.show()
