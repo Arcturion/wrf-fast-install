@@ -56,10 +56,10 @@ import cartopy.feature as cfeature
 ds = sorted_data
 
 # Assuming you want to plot the data for the first timestamp:
-time_index = 24  # Adjust this index to select a different timestamp
+time_index = 18  # Adjust this index to select a different timestamp
 
-rainc = ds['RAINC'].isel(Time=time_index)
-rainnc = ds['RAINNC'].isel(Time=time_index)
+rainc = ds['RAINC'].isel(Time=time_index) - ds['RAINC'].isel(Time=time_index-1)
+rainnc = ds['RAINNC'].isel(Time=time_index) - ds['RAINNC'].isel(Time=time_index - 1)
 
 
 plt.figure(figsize=(10, 10))
@@ -71,16 +71,7 @@ ax.add_feature(cfeature.LAND)
 ax.add_feature(cfeature.OCEAN)
 ax.gridlines(draw_labels=True)
 
-im = (rainc+rainnc).plot(ax=ax, cmap='Blues', vmin=0, vmax=50, colorbar=False)
-
-
-## TODO : make the colorbar smaller/fix double colorbar
-
-# Add a smaller colorbar
-plt.colorbar(im, ax=ax, label='Precipitation (mm)', shrink=0.5)
-
-# Add a colorbar
-#plt.colorbar((rainc+rainnc).plot(cmap='Blues', vmin=0, vmax=50), ax=ax, label='Precipitation (mm)', shrink=0.5)
+(rainc+rainnc).plot(ax=ax, cmap='Blues', vmin=0, vmax=20, cbar_kwargs={'shrink': 0.5})
 
 # Set plot title
 plt.title('Precipitation at {}'.format(ds.XTIME[time_index].values))
