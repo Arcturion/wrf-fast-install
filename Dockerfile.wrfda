@@ -1,0 +1,58 @@
+# ---------------------------------------------------------
+# WRFDA layer on top of your existing WRF image
+# ---------------------------------------------------------
+FROM wrf-fast-install:latest
+
+# Install additional tools & libs commonly needed by WRFDA
+# (some of these may already be present in your base image;
+#  it's OK if apt says "already the newest version".)
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive \
+    apt-get install -y --no-install-recommends \
+        csh tcsh perl m4 \
+        libblas-dev liblapack-dev \
+        libhdf5-dev libhdf5-serial-dev \
+        libnetcdf-dev libnetcdff-dev \
+        wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Adjust these paths to whatever your base image uses
+# for netCDF and (optionally) HDF5.
+ENV DIR=/Build_WRF \
+    WRFDA_DIR=/Build_WRF/WRFDA \
+    NETCDF=/usr/lib/x86_64-linux-gnu \
+    HDF5=/usr/lib/x86_64-linux-gnu \
+    NETCDF_classic=1
+
+WORKDIR ${DIR}
+
+# ---------------------------------------------------------
+# Prepare the WRFDA tarball and
+# add it to the build context as WRFDAV3.9.TAR.gz
+# ---------------------------------------------------------
+COPY WRFDAV3.9.TAR.gz ${DIR}/
+
+# Unpack WRFDA
+RUN tar -xzf WRFDAV3.9.TAR.gz \
+ && ls -1 \
+ && mv WRFDA* WRFDA
+
+WORKDIR ${WRFDA_DIR}
+
+# Configure & compile WRFDA
+# NOTE: replace "34" with the correct option number for your
+# platform/Fortran/MPI combo when you run `./configure wrfda`
+# interactively once and see which one you want.
+RUN echo "Using NETCDF=${NETCDF} and HDF5=${HDF5}" \
+ && ./clean -a || true \
+ && echo 34 | ./configure wrfda \
+ && ./compile all_wrfvar > compile.wrfda.log 2>&1
+
+# Add some handy executables to PATH (if they exist)
+RUN if [ -f var/build/da_wrfvar.exe ]; then \
+        ln -s ${WRFDA_DIR}/var/build/da_wrfvar.exe /usr/local/bin/da_wrfvar; \
+    fi && \
+    if [ -f var/obsproc/obsproc.exe ]; then \
+        ln -s ${WRFDA_DIR}/var/obsproc/obsproc.exe /usr/local/bin/obsproc; \
+    fi
+
+WORKDIR /work
