@@ -13,7 +13,7 @@ Ensure that you have the following installed on your system:
 
 
 
-## Installation
+## Installation WRF only
 
 ### Step 1: Update and Install Git
 
@@ -77,6 +77,33 @@ docker run -it wrf-fast-install
 ```
 
 You should now be inside the Docker container, ready to proceed with WRF.
+
+
+## Installation WRFDA
+
+### Step 1: Build the WRF Only fiorst
+```bash
+git clone https://github.com/Arcturion/wrf-fast-install.git
+cd wrf-fast-install
+docker build -t wrf-fast-install .
+```
+
+### Step 2: Build the WRF DA image
+download the WRFDA tarball first (WRFDAV3.9.TAR.gz)
+```bash
+docker build -f Dockerfile.wrfda -t wrf-wrfda .
+```
+
+### Step 5: Run the Docker Container
+
+Once the image has been built, run the container interactively:
+
+```bash
+docker run -it wrf-wrfda /bin/bash
+```
+Inside the container you should have da_wrfvar (and others) on the PATH if the build succeeded.
+
+
 
 ## Additional Information
 
