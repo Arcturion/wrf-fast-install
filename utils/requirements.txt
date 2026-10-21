@@ -1,0 +1,12 @@
+# Core (required by all utils)
+numpy
+pandas
+xarray
+netCDF4
+matplotlib
+scipy
+Pillow
+
+# Optional (recommended): coastlines and borders on all maps.
+# Without it the utils still work and fall back to plain lat/lon maps.
+cartopy
