@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WRF Namelist Builder — wrf-fast-install</title>
+<style>
+  :root { --ink:#1c2733; --mut:#5b6b7a; --line:#d5dde4; --accent:#0b6bcb;
+          --warn:#9a6a00; --warnbg:#fff6dd; --err:#a41212; --errbg:#fdecec;
+          --ok:#166b2e; --okbg:#e9f7ec; --panel:#f7fafc; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+         color: var(--ink); margin: 0; background: #eef3f7; }
+  header { background: #10344f; color: #fff; padding: 14px 20px; }
+  header h1 { margin: 0; font-size: 20px; }
+  header p { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+  main { display: grid; grid-template-columns: minmax(430px, 560px) 1fr;
+         gap: 14px; padding: 14px; align-items: start; }
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } }
+  section { background: #fff; border: 1px solid var(--line); border-radius: 8px;
+            padding: 12px 14px; margin-bottom: 14px; }
+  section h2 { font-size: 15px; margin: 0 0 10px; }
+  section h3 { font-size: 13px; margin: 12px 0 6px; color: var(--mut); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+  .field label { font-size: 12px; color: var(--mut); }
+  .field input, .field select { font-size: 14px; padding: 5px 7px;
+    border: 1px solid var(--line); border-radius: 5px; min-width: 0; }
+  .field input[type=number] { width: 105px; }
+  .field input[type=text] { width: 210px; }
+  button { font-size: 13px; padding: 6px 12px; border-radius: 6px;
+           border: 1px solid var(--accent); background: var(--accent);
+           color: #fff; cursor: pointer; }
+  button.ghost { background: #fff; color: var(--accent); }
+  button.danger { background: #fff; color: var(--err); border-color: var(--err); }
+  button:disabled { opacity: .45; cursor: default; }
+  .domain-card { border: 1px solid var(--line); border-left: 5px solid var(--accent);
+                 border-radius: 6px; padding: 9px 11px; margin-bottom: 10px;
+                 background: var(--panel); }
+  .domain-card h3 { margin: 0 0 7px; color: var(--ink); font-size: 13.5px;
+                    display: flex; justify-content: space-between; align-items: center; }
+  .hint { font-size: 12px; color: var(--mut); }
+  table.physics { border-collapse: collapse; width: 100%; }
+  table.physics th, table.physics td { padding: 3px; font-size: 12.5px;
+    text-align: left; }
+  table.physics select { width: 100%; font-size: 12.5px; padding: 4px; }
+  #preview-wrap { position: sticky; top: 14px; }
+  svg { background: #f4f9fd; border: 1px solid var(--line); border-radius: 6px;
+        width: 100%; height: auto; touch-action: none; }
+  .grat { stroke: #cfdde8; stroke-width: 1; fill: none; }
+  .grat-label { font-size: 11px; fill: #7d8ea0; }
+  .dom-rect { fill-opacity: .13; stroke-width: 2.5; cursor: default; }
+  .dom-rect.nest { cursor: move; }
+  .dom-label { font-size: 12.5px; font-weight: 600; }
+  pre.out { background: #0f2233; color: #d7ecff; padding: 12px; border-radius: 6px;
+            font-size: 12px; overflow: auto; max-height: 430px; }
+  .msg { border-radius: 6px; padding: 7px 10px; font-size: 13px; margin: 0 0 7px; }
+  .msg.error { background: var(--errbg); color: var(--err); }
+  .msg.warn { background: var(--warnbg); color: var(--warn); }
+  .msg.ok { background: var(--okbg); color: var(--ok); }
+  .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+  footer { padding: 0 20px 18px; font-size: 12px; color: var(--mut); }
+</style>
+</head>
+<body>
+<header>
+  <h1>WRF Namelist Builder</h1>
+  <p>Design domains interactively, pick physics from the dropdowns, and download a
+     matched <b>namelist.wps</b> + <b>namelist.input</b> pair. Everything runs in
+     your browser — no server, no upload.</p>
+</header>
+<main>
+  <div id="controls">
+    <section>
+      <h2>1 · Projection &amp; parent domain</h2>
+      <div class="row">
+        <div class="field"><label>Map projection</label>
+          <select id="proj">
+            <option value="lambert">Lambert conformal</option>
+            <option value="mercator">Mercator</option>
+            <option value="lat-lon">Lat-lon (regular)</option>
+            <option value="polar">Polar stereographic</option>
+          </select></div>
+        <div class="field"><label>Reference latitude</label>
+          <input type="number" id="refLat" step="0.1"></div>
+        <div class="field"><label>Reference longitude</label>
+          <input type="number" id="refLon" step="0.1"></div>
+      </div>
+      <div class="row" id="projExtra">
+        <div class="field"><label>truelat1</label>
+          <input type="number" id="truelat1" step="0.5"></div>
+        <div class="field"><label>truelat2</label>
+          <input type="number" id="truelat2" step="0.5"></div>
+        <div class="field"><label>stand_lon</label>
+          <input type="number" id="standLon" step="0.1"></div>
+        <div class="field"><label>Parent dx / dy (m)</label>
+          <input type="number" id="dx" step="500" min="250"></div>
+      </div>
+      <p class="hint">The reference point is the centre of domain 1. Grid sizes are
+        set per domain in the cards below.</p>
+    </section>
+
+    <section>
+      <h2>2 · Domains</h2>
+      <div id="domainCards"></div>
+      <div class="btnrow">
+        <button id="addNest" class="ghost">+ Add nest</button>
+        <span class="hint">Drag a nest on the map, or type its centre.
+          Nest grid sizes snap so (size − 1) ÷ ratio stays a whole number,
+          as WRF requires.</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>3 · Run &amp; WPS settings</h2>
+      <div class="row">
+        <div class="field"><label>Start</label>
+          <input type="datetime-local" id="start"></div>
+        <div class="field"><label>End</label>
+          <input type="datetime-local" id="end"></div>
+        <div class="field"><label>Input data interval (s)</label>
+          <input type="number" id="intervalSeconds" step="3600"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Geography data path (geog_data_path)</label>
+          <input type="text" id="geogPath"></div>
+        <div class="field"><label>Vertical levels (e_vert)</label>
+          <input type="number" id="eVert" min="10" max="100"></div>
+        <div class="field"><label>Metgrid levels in your input data</label>
+          <input type="number" id="numMetgridLevels" min="1" max="60"></div>
+      </div>
+      <div class="row">
+        <div class="field"><label>Time step (s, parent)</label>
+          <input type="number" id="timeStep" min="1"></div>
+        <div class="field"><label>History interval (min, all domains)</label>
+          <input type="number" id="historyInterval" min="1"></div>
+        <div class="field"><label>Cumulus interval cudt (min)</label>
+          <input type="number" id="cudt" min="0"></div>
+      </div>
+      <p class="hint">Time step guideline: roughly 6 s per km of parent dx.
+        Metgrid levels must match the meteorological input data you will
+        feed to WPS (for example 34 for typical GFS files).</p>
+    </section>
+
+    <section>
+      <h2>4 · Physics (parameterisation)</h2>
+      <div class="btnrow">
+        <span class="hint" style="align-self:center">Presets from the WRF Users Guide:</span>
+        <button class="ghost" data-suite="CONUS">NCAR CONUS suite</button>
+        <button class="ghost" data-suite="tropical">NCAR tropical suite</button>
+      </div>
+      <table class="physics"><thead><tr id="physHead"></tr></thead>
+      <tbody id="physBody"></tbody></table>
+      <p class="hint">Physics can differ per domain — most often you will switch
+        cumulus off (0) on domains finer than about 4 km.</p>
+    </section>
+
+    <section>
+      <h2>5 · Checks</h2>
+      <div id="messages"></div>
+    </section>
+  </div>
+
+  <div id="preview-wrap">
+    <section>
+      <h2>Domain preview <span class="hint">(projected space — drag the nests)</span></h2>
+      <svg id="map" viewBox="-500000 -450000 1000000 900000"
+           preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="btnrow">
+        <button class="ghost" id="zoomIn">Zoom +</button>
+        <button class="ghost" id="zoomOut">Zoom −</button>
+        <button class="ghost" id="zoomFit">Fit</button>
+      </div>
+      <div id="domSummary" class="hint"></div>
+    </section>
+    <section>
+      <h2>Generated namelists</h2>
+      <div class="btnrow">
+        <button id="dlWps">Download namelist.wps</button>
+        <button id="dlInput">Download namelist.input</button>
+        <button class="ghost" id="copyBoth">Copy both</button>
+      </div>
+      <h3>namelist.wps</h3>
+      <pre class="out" id="outWps"></pre>
+      <h3>namelist.input</h3>
+      <pre class="out" id="outInput"></pre>
+    </section>
+  </div>
+</main>
+<footer>
+  Part of <b>wrf-fast-install</b> · Companion to <code>utils/plot_domains.py</code>,
+  which previews an existing namelist.wps. Physics scheme numbers follow the
+  WRF Users Guide (commonly used schemes listed). Positions use a spherical
+  earth (R = 6370 km, as in WRF) and are for setup and checking — geogrid.exe
+  remains the authority.
+</footer>
+
+<script id="core">
+"use strict";
+/* ================= Core logic (DOM-free, unit-tested) ================= */
+const R_EARTH = 6370000;
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+
+function defaultState() {
+  return {
+    proj: "lambert", refLat: -6.5, refLon: 107.0,
+    truelat1: -10, truelat2: -20, standLon: 107.0, dx: 9000,
+    domains: [
+      { e_we: 100, e_sn: 80 },
+      { parent: 0, ratio: 3, centreLat: -6.5, centreLon: 107.0, e_we: 118, e_sn: 94 }
+    ],
+    start: "2024-11-17T00:00", end: "2024-11-18T00:00",
+    intervalSeconds: 21600, geogPath: "/path/to/WPS_GEOG",
+    eVert: 38, numMetgridLevels: 34,
+    timeStep: 54, historyInterval: 60, cudt: 5,
+    physics: {           // NCAR tropical suite as the starting point
+      mp:     [6, 6], cu: [16, 16], lw: [4, 4], sw: [4, 4],
+      pbl:    [1, 1], sfclay: [91, 91], lsm: [2, 2]
+    }
+  };
+}
+
+/* ---- Projections on a sphere; the reference point maps to (0, 0) ---- */
+function makeProjection(s) {
+  const refLat = s.refLat, refLon = s.refLon;
+  if (s.proj === "lambert") {
+    const mirror = s.truelat1 < 0, sg = mirror ? -1 : 1;
+    const la1 = sg * s.truelat1 * D2R, la2 = sg * s.truelat2 * D2R;
+    let n;
+    if (Math.abs(s.truelat1 - s.truelat2) < 1e-9) n = Math.sin(la1);
+    else n = Math.log(Math.cos(la1) / Math.cos(la2)) /
+             Math.log(Math.tan(Math.PI / 4 + la2 / 2) / Math.tan(Math.PI / 4 + la1 / 2));
+    const F = Math.cos(la1) * Math.pow(Math.tan(Math.PI / 4 + la1 / 2), n) / n;
+    const lon0 = s.standLon * D2R;
+    const rho = phi => R_EARTH * F / Math.pow(Math.tan(Math.PI / 4 + phi / 2), n);
+    const rhoRef = rho(sg * refLat * D2R);
+    function fwdCore(lat, lon) {
+      const r = rho(lat * D2R), th = n * (lon * D2R - lon0);
+      return [r * Math.sin(th), rhoRef - r * Math.cos(th)];
+    }
+    function invCore(x, y) {
+      const dy = rhoRef - y, r = Math.hypot(x, dy), th = Math.atan2(x, dy);
+      const phi = 2 * Math.atan(Math.pow(R_EARTH * F / r, 1 / n)) - Math.PI / 2;
+      return [phi * R2D, (lon0 + th / n) * R2D];
+    }
+    return {
+      forward(lat, lon) {
+        if (mirror) { const [x, y] = fwdCore(-lat, lon); return [x, -y]; }
+        return fwdCore(lat, lon);
+      },
+      inverse(x, y) {
+        if (mirror) { const [la, lo] = invCore(x, -y); return [-la, lo]; }
+        return invCore(x, y);
+      }
+    };
+  }
+  if (s.proj === "mercator") {
+    const yOf = phi => R_EARTH * Math.log(Math.tan(Math.PI / 4 + phi / 2));
+    const yRef = yOf(refLat * D2R), lamRef = refLon * D2R;
+    return {
+      forward: (lat, lon) => [R_EARTH * (lon * D2R - lamRef), yOf(lat * D2R) - yRef],
+      inverse: (x, y) => [ (2 * Math.atan(Math.exp((y + yRef) / R_EARTH)) - Math.PI / 2) * R2D,
+                           (lamRef + x / R_EARTH) * R2D ]
+    };
+  }
+  if (s.proj === "polar") {
+    const hemi = refLat < 0 ? -1 : 1;
+    const ts = Math.abs(s.truelat1) * D2R;               // true latitude, positive
+    const k = 1 + Math.sin(ts);                          // scale factor constant
+    const rhoOf = phi => R_EARTH * k * Math.tan(Math.PI / 4 - phi / 2);
+    const lam0 = s.standLon * D2R;
+    function fwdRaw(lat, lon) {
+      const r = rhoOf(hemi * lat * D2R), th = lon * D2R - lam0;
+      return [r * Math.sin(th), -hemi * r * Math.cos(th)];
+    }
+    const [rx, ry] = fwdRaw(refLat, refLon);
+    return {
+      forward(lat, lon) { const [x, y] = fwdRaw(lat, lon); return [x - rx, y - ry]; },
+      inverse(x, y) {
+        const xx = x + rx, yy = y + ry;
+        const r = Math.hypot(xx, yy), th = Math.atan2(xx, -hemi * yy);
+        const phi = Math.PI / 2 - 2 * Math.atan(r / (R_EARTH * k));
+        return [hemi * phi * R2D, (lam0 + th) * R2D];
+      }
+    };
+  }
+  /* lat-lon: grid coordinates are degrees, handled in computeDomains */
+  return {
+    forward: (lat, lon) => [(lon - refLon) / D2R * 0 + (lon - refLon), (lat - refLat)],
+    inverse: (x, y) => [refLat + y, refLon + x]
+  };
+}
+
+/* Snap a nest dimension so (dim - 1) is divisible by the ratio */
+function snapDim(dim, ratio) {
+  return Math.max(ratio + 1, Math.round((dim - 1) / ratio) * ratio + 1);
+}
+
+/* Compute every domain in projected coordinates.
+   Returns per domain: dx, e_we, e_sn, iStart, jStart (1 for d01),
+   x0..x1 / y0..y1 of mass points, centre and corner lat/lon, snappedBy (m). */
+function computeDomains(s) {
+  const proj = makeProjection(s);
+  const latlon = s.proj === "lat-lon";
+  const out = [];
+  s.domains.forEach((d, idx) => {
+    const N_we = d.e_we - 1, N_sn = d.e_sn - 1;
+    if (idx === 0) {
+      /* for lat-lon, s.dx stays in metres for display and time-step maths;
+         the grid step in degrees is derived from it */
+      const stepX = latlon ? s.dx / (111320 * Math.cos(s.refLat * D2R)) : s.dx;
+      const stepY = latlon ? s.dx / 110574 : s.dx;
+      const x0 = -(N_we - 1) / 2 * stepX, y0 = -(N_sn - 1) / 2 * stepY;
+      out.push({ idx, dx: s.dx, stepX, stepY, e_we: d.e_we, e_sn: d.e_sn,
+                 iStart: 1, jStart: 1, x0, y0,
+                 x1: x0 + (N_we - 1) * stepX, y1: y0 + (N_sn - 1) * stepY,
+                 snappedBy: 0 });
+    } else {
+      const parent = out[d.parent];
+      const ratio = d.ratio;
+      const dx = parent.dx / ratio;
+      const stepX = parent.stepX / ratio, stepY = parent.stepY / ratio;
+      let cx, cy;
+      if (latlon) { cx = d.centreLon - s.refLon; cy = d.centreLat - s.refLat; }
+      else { [cx, cy] = proj.forward(d.centreLat, d.centreLon); }
+      const xf = cx - (N_we - 1) / 2 * stepX;
+      const yf = cy - (N_sn - 1) / 2 * stepY;
+      const iFloat = (xf - parent.x0) / parent.stepX + 1;
+      const jFloat = (yf - parent.y0) / parent.stepY + 1;
+      const iStart = Math.max(1, Math.round(iFloat));
+      const jStart = Math.max(1, Math.round(jFloat));
+      const x0 = parent.x0 + (iStart - 1) * parent.stepX;
+      const y0 = parent.y0 + (jStart - 1) * parent.stepY;
+      out.push({ idx, dx, stepX, stepY, e_we: d.e_we, e_sn: d.e_sn,
+                 iStart, jStart, x0, y0,
+                 x1: x0 + (N_we - 1) * stepX, y1: y0 + (N_sn - 1) * stepY,
+                 snappedBy: Math.hypot((iFloat - iStart) * parent.stepX,
+                                       (jFloat - jStart) * parent.stepY) });
+    }
+  });
+  /* lat/lon of centre and corners */
+  out.forEach(c => {
+    const cxm = (c.x0 + c.x1) / 2, cym = (c.y0 + c.y1) / 2;
+    if (latlon) {
+      c.centre = [s.refLat + cym, s.refLon + cxm];
+      c.sw = [s.refLat + c.y0, s.refLon + c.x0];
+      c.ne = [s.refLat + c.y1, s.refLon + c.x1];
+    } else {
+      c.centre = proj.inverse(cxm, cym);
+      c.sw = proj.inverse(c.x0, c.y0);
+      c.ne = proj.inverse(c.x1, c.y1);
+    }
+    c.widthKm = latlon ? (c.x1 - c.x0) * 111.32 * Math.cos(s.refLat * D2R)
+                       : (c.x1 - c.x0) / 1000;
+    c.heightKm = latlon ? (c.y1 - c.y0) * 110.57 : (c.y1 - c.y0) / 1000;
+  });
+  return { proj, domains: out };
+}
+
+/* ================= Physics catalogue (WRF Users Guide) ================= */
+const PHYS = {
+  mp: { label: "Microphysics (mp_physics)", options: [
+    [0, "Off"], [1, "Kessler"], [2, "Purdue Lin"], [3, "WSM 3-class"],
+    [4, "WSM 5-class"], [6, "WSM 6-class"], [7, "Goddard GCE"],
+    [8, "Thompson"], [10, "Morrison 2-moment"], [11, "CAM 5.1"],
+    [14, "WDM 5-class"], [16, "WDM 6-class"], [17, "NSSL 2-moment"],
+    [22, "P3"], [24, "WSM 7-class"], [28, "Thompson aerosol-aware"] ] },
+  cu: { label: "Cumulus (cu_physics)", options: [
+    [0, "Off (explicit convection)"], [1, "Kain-Fritsch"], [2, "Betts-Miller-Janjic"],
+    [3, "Grell-Freitas"], [5, "Grell 3D ensemble"], [6, "Tiedtke"],
+    [7, "Zhang-McFarlane"], [11, "Multi-scale Kain-Fritsch"], [14, "New SAS"],
+    [16, "New Tiedtke"] ] },
+  lw: { label: "Longwave radiation (ra_lw_physics)", options: [
+    [0, "Off"], [1, "RRTM"], [3, "CAM"], [4, "RRTMG"], [5, "New Goddard"],
+    [7, "FLG"], [99, "GFDL"] ] },
+  sw: { label: "Shortwave radiation (ra_sw_physics)", options: [
+    [0, "Off"], [1, "Dudhia"], [2, "Goddard"], [3, "CAM"], [4, "RRTMG"],
+    [5, "New Goddard"], [7, "FLG"], [99, "GFDL"] ] },
+  pbl: { label: "Boundary layer (bl_pbl_physics)", options: [
+    [0, "Off"], [1, "YSU"], [2, "MYJ"], [4, "QNSE"], [5, "MYNN 2.5"],
+    [6, "ACM2"], [7, "BouLac"], [8, "UW"], [9, "Shin-Hong"], [11, "MRF"] ] },
+  sfclay: { label: "Surface layer (sf_sfclay_physics)", options: [
+    [0, "Off"], [1, "Revised MM5"], [2, "MYJ (Eta)"], [4, "QNSE"],
+    [5, "MYNN"], [7, "Pleim-Xiu"], [91, "MM5"] ] },
+  lsm: { label: "Land surface (sf_surface_physics)", options: [
+    [0, "Off"], [1, "Thermal diffusion (5-layer)"], [2, "Noah"],
+    [3, "RUC"], [4, "Noah-MP"], [5, "CLM4"], [7, "Pleim-Xiu"],
+    [8, "SSiB"], [9, "FLake"] ] }
+};
+const PHYS_KEYS = ["mp", "cu", "lw", "sw", "pbl", "sfclay", "lsm"];
+const NAMELIST_VAR = { mp: "mp_physics", cu: "cu_physics", lw: "ra_lw_physics",
+  sw: "ra_sw_physics", pbl: "bl_pbl_physics", sfclay: "sf_sfclay_physics",
+  lsm: "sf_surface_physics" };
+const SOIL_LAYERS = { 0: 4, 1: 5, 2: 4, 3: 9, 4: 4, 5: 10, 7: 2, 8: 3, 9: 4 };
+const SUITES = {
+  CONUS:    { mp: 8, cu: 6,  lw: 4, sw: 4, pbl: 2, sfclay: 2,  lsm: 2 },
+  tropical: { mp: 6, cu: 16, lw: 4, sw: 4, pbl: 1, sfclay: 91, lsm: 2 }
+};
+
+/* ================= Validation ================= */
+function validate(s, computed) {
+  const errors = [], warnings = [], infos = [];
+  const doms = computed.domains;
+  const latlon = s.proj === "lat-lon";
+  if (!(s.refLat >= -89 && s.refLat <= 89)) errors.push("Reference latitude must be between -89 and 89.");
+  if (!(s.refLon >= -180 && s.refLon <= 360)) errors.push("Reference longitude looks out of range.");
+  const t0 = new Date(s.start), t1 = new Date(s.end);
+  if (!(t1 > t0)) errors.push("End time must be after the start time.");
+  if (s.dx < 100) errors.push("Parent dx is implausibly small — it is in metres.");
+  s.domains.forEach((d, i) => {
+    if (d.e_we < 10 || d.e_sn < 10)
+      warnings.push(`d0${i + 1}: grid ${d.e_we} x ${d.e_sn} is very small.`);
+    if (i > 0) {
+      if ((d.e_we - 1) % d.ratio !== 0 || (d.e_sn - 1) % d.ratio !== 0)
+        errors.push(`d0${i + 1}: (e_we - 1) and (e_sn - 1) must be divisible by the ratio ${d.ratio}.`);
+      const c = doms[i], p = doms[d.parent];
+      const spanW = (c.e_we - 1) / d.ratio, spanS = (c.e_sn - 1) / d.ratio;
+      const west = c.iStart - 1, south = c.jStart - 1;
+      const east = (p.e_we - 1) - (west + spanW), north = (p.e_sn - 1) - (south + spanS);
+      if (west < 0 || south < 0 || east < 0 || north < 0)
+        errors.push(`d0${i + 1} extends outside its parent d0${d.parent + 1}. Move it inwards or shrink it.`);
+      else if (Math.min(west, south, east, north) < 5)
+        warnings.push(`d0${i + 1} sits within 5 parent grid points of the parent boundary — the boundary relaxation zone will eat into it. Give it more margin.`);
+      if (c.snappedBy > 1)
+        infos.push(`d0${i + 1}: centre snapped by ${(c.snappedBy / (latlon ? 111 : 1000)).toFixed(1)}${latlon ? " deg (approx)" : " km"} so the nest aligns with parent grid points (start ${c.iStart}, ${c.jStart}).`);
+    }
+  });
+  doms.forEach((c, i) => {
+    const cu = s.physics.cu[i];
+    if (c.dx < 4000 && cu !== 0)
+      warnings.push(`d0${i + 1} has dx ${Math.round(c.dx)} m with a cumulus scheme on — at convection-permitting resolution cu_physics is normally 0 there.`);
+    if (s.physics.pbl[i] === 2 && s.physics.sfclay[i] !== 2)
+      warnings.push(`d0${i + 1}: MYJ boundary layer is normally paired with the MYJ surface layer (sf_sfclay_physics = 2).`);
+    if (s.physics.pbl[i] === 6 && s.physics.sfclay[i] !== 7)
+      warnings.push(`d0${i + 1}: ACM2 boundary layer expects the Pleim-Xiu surface layer (sf_sfclay_physics = 7).`);
+    if (s.physics.pbl[i] === 6 && s.physics.lsm[i] !== 7)
+      warnings.push(`d0${i + 1}: ACM2 boundary layer expects the Pleim-Xiu land surface model (sf_surface_physics = 7).`);
+    if (s.physics.pbl[i] === 1 && ![1, 91].includes(s.physics.sfclay[i]))
+      warnings.push(`d0${i + 1}: YSU boundary layer is normally paired with an MM5 surface layer (sf_sfclay_physics = 1 or 91).`);
+  });
+  const ratioTS = s.timeStep / (s.dx / 1000);
+  if (ratioTS < 2 || ratioTS > 10)
+    warnings.push(`Time step ${s.timeStep} s is ${ratioTS.toFixed(1)} s per km of parent dx — the usual guideline is about 6 s per km.`);
+  const hours = (t1 - t0) / 3600000;
+  if (hours > 0 && s.intervalSeconds > 0 && (hours * 3600) % s.intervalSeconds !== 0)
+    warnings.push("Run length is not a whole number of input data intervals — metgrid will need data up to the end time.");
+  return { errors, warnings, infos };
+}
+
+/* ================= Namelist generation ================= */
+const list = (arr, tail = ",") => arr.join(", ") + tail;
+const q = v => `'${v}'`;
+function wpsDate(iso) { return iso.replace("T", "_") + ":00"; }
+function splitDate(iso) {
+  const d = new Date(iso + (iso.length === 16 ? ":00Z" : "Z"));
+  return { y: d.getUTCFullYear(), mo: d.getUTCMonth() + 1, d: d.getUTCDate(),
+           h: d.getUTCHours(), mi: d.getUTCMinutes(), s: d.getUTCSeconds() };
+}
+
+function generateWPS(s, computed) {
+  const n = s.domains.length, doms = computed.domains;
+  const L = [];
+  L.push("&share");
+  L.push(" wrf_core = 'ARW',");
+  L.push(` max_dom = ${n},`);
+  L.push(` start_date = ${list(s.domains.map(() => q(wpsDate(s.start))))}`);
+  L.push(` end_date = ${list(s.domains.map(() => q(wpsDate(s.end))))}`);
+  L.push(` interval_seconds = ${s.intervalSeconds},`);
+  L.push(" io_form_geogrid = 2,");
+  L.push(" debug_level = 0,");
+  L.push("/");
+  L.push("");
+  L.push("&geogrid");
+  L.push(` parent_id = ${list(s.domains.map((d, i) => i === 0 ? 1 : d.parent + 1))}`);
+  L.push(` parent_grid_ratio = ${list(s.domains.map((d, i) => i === 0 ? 1 : d.ratio))}`);
+  L.push(` i_parent_start = ${list(doms.map(c => c.iStart))}`);
+  L.push(` j_parent_start = ${list(doms.map(c => c.jStart))}`);
+  L.push(` e_we = ${list(s.domains.map(d => d.e_we))}`);
+  L.push(` e_sn = ${list(s.domains.map(d => d.e_sn))}`);
+  L.push(` geog_data_res = ${list(s.domains.map(() => q("default")))}`);
+  L.push(` dx = ${s.dx},`);
+  L.push(` dy = ${s.dx},`);
+  L.push(` geog_data_path = ${q(s.geogPath)},`);
+  L.push(` map_proj = ${q(s.proj)},`);
+  L.push(` ref_lat = ${s.refLat},`);
+  L.push(` ref_lon = ${s.refLon},`);
+  if (s.proj !== "lat-lon") {
+    L.push(` truelat1 = ${s.truelat1},`);
+    L.push(` truelat2 = ${s.truelat2},`);
+    L.push(` stand_lon = ${s.standLon},`);
+  }
+  L.push(" opt_geogrid_tbl_path = './geogrid/',");
+  L.push("/");
+  L.push("");
+  L.push("&ungrib");
+  L.push(" out_format = 'WPS',");
+  L.push(" prefix = 'FILE',");
+  L.push("/");
+  L.push("");
+  L.push("&metgrid");
+  L.push(" fg_name = 'FILE',");
+  L.push(" io_form_metgrid = 2,");
+  L.push(" opt_metgrid_tbl_path = './metgrid/',");
+  L.push("/");
+  return L.join("\n") + "\n";
+}
+
+function generateInput(s, computed) {
+  const n = s.domains.length, doms = computed.domains;
+  const a = splitDate(s.start), b = splitDate(s.end);
+  const per = fn => s.domains.map((_, i) => fn(i));
+  const L = [];
+  L.push("&time_control");
+  L.push(` run_days = 0,`);
+  L.push(` run_hours = 0,`);
+  L.push(` run_minutes = 0,`);
+  L.push(` run_seconds = 0,`);
+  L.push(` start_year = ${list(per(() => a.y))}`);
+  L.push(` start_month = ${list(per(() => a.mo))}`);
+  L.push(` start_day = ${list(per(() => a.d))}`);
+  L.push(` start_hour = ${list(per(() => a.h))}`);
+  L.push(` start_minute = ${list(per(() => a.mi))}`);
+  L.push(` start_second = ${list(per(() => a.s))}`);
+  L.push(` end_year = ${list(per(() => b.y))}`);
+  L.push(` end_month = ${list(per(() => b.mo))}`);
+  L.push(` end_day = ${list(per(() => b.d))}`);
+  L.push(` end_hour = ${list(per(() => b.h))}`);
+  L.push(` end_minute = ${list(per(() => b.mi))}`);
+  L.push(` end_second = ${list(per(() => b.s))}`);
+  L.push(` interval_seconds = ${s.intervalSeconds},`);
+  L.push(" input_from_file = " + list(per(() => ".true.")));
+  L.push(` history_interval = ${list(per(() => s.historyInterval))}`);
+  L.push(` frames_per_outfile = ${list(per(() => 1))}`);
+  L.push(" restart = .false.,");
+  L.push(" restart_interval = 1440,");
+  L.push(" io_form_history = 2,");
+  L.push(" io_form_restart = 2,");
+  L.push(" io_form_input = 2,");
+  L.push(" io_form_boundary = 2,");
+  L.push("/");
+  L.push("");
+  L.push("&domains");
+  L.push(` time_step = ${s.timeStep},`);
+  L.push(" time_step_fract_num = 1,");
+  L.push(" time_step_fract_den = 1,");
+  L.push(` max_dom = ${n},`);
+  L.push(` e_we = ${list(s.domains.map(d => d.e_we))}`);
+  L.push(` e_sn = ${list(s.domains.map(d => d.e_sn))}`);
+  L.push(` e_vert = ${s.eVert},`);
+  L.push(` dx = ${s.dx},`);
+  L.push(` dy = ${s.dx},`);
+  L.push(` grid_id = ${list(s.domains.map((_, i) => i + 1))}`);
+  L.push(` parent_id = ${list(s.domains.map((d, i) => i === 0 ? 1 : d.parent + 1))}`);
+  L.push(` i_parent_start = ${list(doms.map(c => c.iStart))}`);
+  L.push(` j_parent_start = ${list(doms.map(c => c.jStart))}`);
+  L.push(` parent_grid_ratio = ${list(s.domains.map((d, i) => i === 0 ? 1 : d.ratio))}`);
+  L.push(` parent_time_step_ratio = ${list(s.domains.map((d, i) => i === 0 ? 1 : d.ratio))}`);
+  L.push(" feedback = 1,");
+  L.push(" smooth_option = 0,");
+  L.push(" p_top_requested = 5000,");
+  L.push(` num_metgrid_levels = ${s.numMetgridLevels},`);
+  L.push("/");
+  L.push("");
+  L.push("&physics");
+  PHYS_KEYS.forEach(k => {
+    L.push(` ${NAMELIST_VAR[k]} = ${list(s.physics[k].slice(0, n))}`);
+    if (k === "sw") L.push(` radt = ${list(doms.map(c => Math.max(1, Math.round(c.dx / 1000))))}`);
+    if (k === "pbl") L.push(` bldt = ${list(per(() => 0))}`);
+    if (k === "cu") L.push(` cudt = ${list(per(() => s.cudt))}`);
+  });
+  L.push(` num_soil_layers = ${SOIL_LAYERS[s.physics.lsm[0]] ?? 4},`);
+  L.push(" icloud = 1,");
+  L.push("/");
+  L.push("");
+  L.push("&fdda");
+  L.push("/");
+  L.push("");
+  L.push("&dynamics");
+  L.push(" w_damping = 1,");
+  L.push(" diff_opt = 2,");
+  L.push(" km_opt = 4,");
+  L.push(" diff_6th_opt = 0,");
+  L.push(" diff_6th_factor = 0.12,");
+  L.push(" base_temp = 290.,");
+  L.push(" damp_opt = 3,");
+  L.push(" zdamp = 5000.,");
+  L.push(" dampcoef = 0.2,");
+  L.push(" khdif = 0,");
+  L.push(" kvdif = 0,");
+  L.push(" non_hydrostatic = .true.,");
+  L.push("/");
+  L.push("");
+  L.push("&bdy_control");
+  L.push(" spec_bdy_width = 5,");
+  L.push(" spec_zone = 1,");
+  L.push(" relax_zone = 4,");
+  L.push(" specified = " + list(per(i => i === 0 ? ".true." : ".false.")));
+  L.push(" nested = " + list(per(i => i === 0 ? ".false." : ".true.")));
+  L.push("/");
+  L.push("");
+  L.push("&grib2");
+  L.push("/");
+  L.push("");
+  L.push("&namelist_quilt");
+  L.push(" nio_tasks_per_group = 0,");
+  L.push(" nio_groups = 1,");
+  L.push("/");
+  return L.join("\n") + "\n";
+}
+</script>
+
+<script>
+"use strict";
+/* ================= UI wiring ================= */
+const $ = id => document.getElementById(id);
+const state = defaultState();
+const COLOURS = ["#0b6bcb", "#d2691e", "#228b22", "#8e44ad", "#c0392b", "#008080"];
+let computed = null;
+let viewBox = null;
+
+function num(id, val) { const el = $(id); el.value = val; return el; }
+function bindNum(id, get, set) {
+  const el = $(id); el.value = get();
+  el.addEventListener("input", () => { const v = parseFloat(el.value);
+    if (Number.isFinite(v)) { set(v); refresh(); } });
+}
+
+function syncPhysicsSize() {
+  const n = state.domains.length;
+  PHYS_KEYS.forEach(k => {
+    const arr = state.physics[k];
+    while (arr.length < n) arr.push(arr[arr.length - 1] ?? 0);
+    arr.length = n;
+  });
+}
+
+/* ---------- domain cards ---------- */
+function buildCards() {
+  syncPhysicsSize();
+  const wrap = $("domainCards"); wrap.innerHTML = "";
+  state.domains.forEach((d, i) => {
+    const card = document.createElement("div");
+    card.className = "domain-card";
+    card.style.borderLeftColor = COLOURS[i % COLOURS.length];
+    const title = document.createElement("h3");
+    title.innerHTML = `<span>Domain ${i + 1}${i === 0 ? " (parent)" : ""}</span>`;
+    if (i > 0) {
+      const rm = document.createElement("button");
+      rm.className = "danger"; rm.textContent = "Remove";
+      rm.onclick = () => removeDomain(i);
+      title.appendChild(rm);
+    }
+    card.appendChild(title);
+    const row = document.createElement("div"); row.className = "row";
+    const mk = (label, value, onchange, step) => {
+      const f = document.createElement("div"); f.className = "field";
+      const l = document.createElement("label"); l.textContent = label;
+      const inp = document.createElement("input");
+      inp.type = "number"; inp.value = value; inp.step = step || "1";
+      inp.addEventListener("input", () => { const v = parseFloat(inp.value);
+        if (Number.isFinite(v)) { onchange(v); refresh(); } });
+      f.appendChild(l); f.appendChild(inp); row.appendChild(f);
+      return inp;
+    };
+    if (i > 0) {
+      const f = document.createElement("div"); f.className = "field";
+      const l = document.createElement("label"); l.textContent = "Parent domain";
+      const sel = document.createElement("select");
+      for (let p = 0; p < i; p++) {
+        const o = document.createElement("option");
+        o.value = p; o.textContent = "d0" + (p + 1);
+        if (d.parent === p) o.selected = true;
+        sel.appendChild(o);
+      }
+      sel.onchange = () => { d.parent = parseInt(sel.value); refresh(); };
+      f.appendChild(l); f.appendChild(sel); row.appendChild(f);
+      const fr = document.createElement("div"); fr.className = "field";
+      const lr = document.createElement("label"); lr.textContent = "Grid ratio";
+      const rsel = document.createElement("select");
+      [2, 3, 4, 5].forEach(r => {
+        const o = document.createElement("option");
+        o.value = r; o.textContent = r + " : 1";
+        if (d.ratio === r) o.selected = true;
+        rsel.appendChild(o);
+      });
+      rsel.onchange = () => { d.ratio = parseInt(rsel.value);
+        d.e_we = snapDim(d.e_we, d.ratio); d.e_sn = snapDim(d.e_sn, d.ratio);
+        buildCards(); buildPhysics(); refresh(); };
+      fr.appendChild(lr); fr.appendChild(rsel); row.appendChild(fr);
+      d._centreLatEl = mk("Centre latitude", d.centreLat, v => d.centreLat = v, "0.1");
+      d._centreLonEl = mk("Centre longitude", d.centreLon, v => d.centreLon = v, "0.1");
+    }
+    mk("e_we (west-east pts)", d.e_we, v => {
+      d.e_we = i === 0 ? Math.max(10, Math.round(v)) : snapDim(Math.round(v), d.ratio);
+    });
+    mk("e_sn (south-north pts)", d.e_sn, v => {
+      d.e_sn = i === 0 ? Math.max(10, Math.round(v)) : snapDim(Math.round(v), d.ratio);
+    });
+    card.appendChild(row);
+    const info = document.createElement("div");
+    info.className = "hint"; info.id = "dominfo" + i;
+    card.appendChild(info);
+    wrap.appendChild(card);
+  });
+}
+
+function removeDomain(i) {
+  state.domains.splice(i, 1);
+  state.domains.forEach((d, j) => {
+    if (j === 0) return;
+    if (d.parent === i) d.parent = Math.max(0, i - 1);
+    else if (d.parent > i) d.parent -= 1;
+  });
+  PHYS_KEYS.forEach(k => state.physics[k].splice(i, 1));
+  buildCards(); buildPhysics(); refresh();
+}
+
+$("addNest").onclick = () => {
+  const n = state.domains.length;
+  const c = computed.domains[n - 1].centre;
+  state.domains.push({ parent: n - 1, ratio: 3, centreLat: c[0], centreLon: c[1],
+                       e_we: 76, e_sn: 61 });
+  buildCards(); buildPhysics(); refresh();
+};
+
+/* ---------- physics grid ---------- */
+function buildPhysics() {
+  syncPhysicsSize();
+  const n = state.domains.length;
+  $("physHead").innerHTML = "<th>Scheme</th>" +
+    state.domains.map((_, i) => `<th>d0${i + 1}</th>`).join("");
+  const body = $("physBody"); body.innerHTML = "";
+  PHYS_KEYS.forEach(k => {
+    const tr = document.createElement("tr");
+    const td0 = document.createElement("td"); td0.textContent = PHYS[k].label;
+    tr.appendChild(td0);
+    state.domains.forEach((_, i) => {
+      const td = document.createElement("td");
+      const sel = document.createElement("select");
+      PHYS[k].options.forEach(([val, name]) => {
+        const o = document.createElement("option");
+        o.value = val; o.textContent = `${name} (${val})`;
+        if (state.physics[k][i] === val) o.selected = true;
+        sel.appendChild(o);
+      });
+      sel.onchange = () => { state.physics[k][i] = parseInt(sel.value); refresh(); };
+      td.appendChild(sel); tr.appendChild(td);
+    });
+    body.appendChild(tr);
+  });
+}
+document.querySelectorAll("[data-suite]").forEach(btn => {
+  btn.onclick = () => {
+    const suite = SUITES[btn.dataset.suite];
+    PHYS_KEYS.forEach(k => state.physics[k] =
+      state.physics[k].map(() => suite[k]));
+    buildPhysics(); refresh();
+  };
+});
+
+/* ---------- preview ---------- */
+const svg = $("map");
+const NS = "http://www.w3.org/2000/svg";
+function svgEl(tag, attrs) {
+  const el = document.createElementNS(NS, tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+function toSvg(x, y) { return [x, -y]; }
+
+function gratStep(span) {
+  for (const st of [0.5, 1, 2, 5, 10, 20]) if (span / st <= 10) return st;
+  return 30;
+}
+function renderPreview() {
+  const { proj, domains } = computed;
+  const d01 = domains[0];
+  if (!viewBox) fitView();
+  svg.setAttribute("viewBox", viewBox.join(" "));
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+  /* graticule */
+  const latSpan = Math.abs(d01.ne[0] - d01.sw[0]), lonSpan = Math.abs(d01.ne[1] - d01.sw[1]);
+  const stLat = gratStep(latSpan * 1.6), stLon = gratStep(lonSpan * 1.6);
+  const latMin = Math.floor((d01.sw[0] - latSpan * 0.3) / stLat) * stLat;
+  const latMax = Math.ceil((d01.ne[0] + latSpan * 0.3) / stLat) * stLat;
+  const lonMin = Math.floor((d01.sw[1] - lonSpan * 0.3) / stLon) * stLon;
+  const lonMax = Math.ceil((d01.ne[1] + lonSpan * 0.3) / stLon) * stLon;
+  for (let la = latMin; la <= latMax; la += stLat) {
+    const pts = [];
+    for (let lo = lonMin; lo <= lonMax; lo += (lonMax - lonMin) / 40) {
+      const p = state.proj === "lat-lon" ? [lo - state.refLon, la - state.refLat]
+                                         : proj.forward(la, lo);
+      const [sx, sy] = toSvg(p[0], p[1]); pts.push(`${sx},${sy}`);
+    }
+    svg.appendChild(svgEl("polyline", { points: pts.join(" "), class: "grat" }));
+    const p0 = state.proj === "lat-lon" ? [lonMin - state.refLon, la - state.refLat]
+                                        : proj.forward(la, lonMin);
+    const t = svgEl("text", { x: toSvg(p0[0], p0[1])[0], y: toSvg(p0[0], p0[1])[1] - 4,
+                              class: "grat-label" });
+    t.textContent = la.toFixed(stLat < 1 ? 1 : 0) + "°";
+    svg.appendChild(t);
+  }
+  for (let lo = lonMin; lo <= lonMax; lo += stLon) {
+    const pts = [];
+    for (let la = latMin; la <= latMax; la += (latMax - latMin) / 40) {
+      const p = state.proj === "lat-lon" ? [lo - state.refLon, la - state.refLat]
+                                         : proj.forward(la, lo);
+      const [sx, sy] = toSvg(p[0], p[1]); pts.push(`${sx},${sy}`);
+    }
+    svg.appendChild(svgEl("polyline", { points: pts.join(" "), class: "grat" }));
+  }
+  /* domain rectangles (rectangles in projected space) */
+  domains.forEach((c, i) => {
+    const [rx, ry] = toSvg(c.x0, c.y1);
+    const rect = svgEl("rect", {
+      x: rx, y: ry, width: c.x1 - c.x0, height: c.y1 - c.y0,
+      fill: COLOURS[i % COLOURS.length], stroke: COLOURS[i % COLOURS.length],
+      class: "dom-rect" + (i > 0 ? " nest" : ""), "data-idx": i });
+    svg.appendChild(rect);
+    const t = svgEl("text", { x: rx + (c.x1 - c.x0) * 0.02, y: ry + (c.y1 - c.y0) * 0.07,
+                              fill: COLOURS[i % COLOURS.length], class: "dom-label" });
+    t.textContent = `d0${i + 1} · ${Math.round(c.dx)} m`;
+    svg.appendChild(t);
+  });
+}
+function fitView() {
+  const d01 = computed.domains[0];
+  const w = d01.x1 - d01.x0, h = d01.y1 - d01.y0, m = 0.18;
+  viewBox = [d01.x0 - w * m, -(d01.y1) - h * m, w * (1 + 2 * m), h * (1 + 2 * m)];
+}
+function zoom(f) {
+  if (!viewBox) return;
+  const [x, y, w, h] = viewBox, nw = w * f, nh = h * f;
+  viewBox = [x + (w - nw) / 2, y + (h - nh) / 2, nw, nh];
+  svg.setAttribute("viewBox", viewBox.join(" "));
+}
+$("zoomIn").onclick = () => zoom(0.7);
+$("zoomOut").onclick = () => zoom(1.43);
+$("zoomFit").onclick = () => { fitView(); renderPreview(); };
+
+/* dragging nests */
+let drag = null;
+function svgPoint(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  return pt.matrixTransform(svg.getScreenCTM().inverse());
+}
+svg.addEventListener("pointerdown", e => {
+  const idx = e.target.dataset ? parseInt(e.target.dataset.idx) : NaN;
+  if (Number.isFinite(idx) && idx > 0) {
+    const p = svgPoint(e);
+    drag = { idx, startX: p.x, startY: p.y,
+             centre: state.domains[idx].centreLon, centreLat: state.domains[idx].centreLat,
+             projCentre: computed.proj.forward(state.domains[idx].centreLat,
+                                               state.domains[idx].centreLon) };
+    svg.setPointerCapture(e.pointerId);
+  }
+});
+svg.addEventListener("pointermove", e => {
+  if (!drag) return;
+  const p = svgPoint(e), d = state.domains[drag.idx];
+  const dxm = p.x - drag.startX, dym = -(p.y - drag.startY);
+  if (state.proj === "lat-lon") {
+    d.centreLon = drag.centre + dxm; d.centreLat = drag.centreLat + dym;
+  } else {
+    const [la, lo] = computed.proj.inverse(drag.projCentre[0] + dxm,
+                                           drag.projCentre[1] + dym);
+    d.centreLat = la; d.centreLon = lo;
+  }
+  if (d._centreLatEl) d._centreLatEl.value = d.centreLat.toFixed(3);
+  if (d._centreLonEl) d._centreLonEl.value = d.centreLon.toFixed(3);
+  refresh();
+});
+["pointerup", "pointercancel"].forEach(ev =>
+  svg.addEventListener(ev, () => { drag = null; }));
+
+/* ---------- refresh ---------- */
+function refresh() {
+  computed = computeDomains(state);
+  const v = validate(state, computed);
+  /* domain info lines */
+  computed.domains.forEach((c, i) => {
+    const el = $("dominfo" + i);
+    if (el) el.textContent =
+      `dx ${Math.round(c.dx)} m · size ${c.widthKm.toFixed(0)} x ${c.heightKm.toFixed(0)} km` +
+      (i > 0 ? ` · starts at parent point (${c.iStart}, ${c.jStart})` : "") +
+      ` · centre ${c.centre[0].toFixed(3)}, ${c.centre[1].toFixed(3)}` +
+      ` · SW ${c.sw[0].toFixed(2)}, ${c.sw[1].toFixed(2)} · NE ${c.ne[0].toFixed(2)}, ${c.ne[1].toFixed(2)}`;
+  });
+  /* messages */
+  const box = $("messages"); box.innerHTML = "";
+  const add = (cls, text) => { const p = document.createElement("p");
+    p.className = "msg " + cls; p.textContent = text; box.appendChild(p); };
+  v.errors.forEach(t => add("error", "✖ " + t));
+  v.warnings.forEach(t => add("warn", "⚠ " + t));
+  v.infos.forEach(t => add("ok", "ℹ " + t));
+  if (!v.errors.length && !v.warnings.length)
+    add("ok", "✓ All checks pass.");
+  $("dlWps").disabled = $("dlInput").disabled = v.errors.length > 0;
+  /* summary + outputs */
+  $("domSummary").textContent = computed.domains.map((c, i) =>
+    `d0${i + 1}: ${c.e_we} x ${c.e_sn} pts @ ${Math.round(c.dx)} m`).join("  ·  ");
+  renderPreview();
+  $("outWps").textContent = generateWPS(state, computed);
+  $("outInput").textContent = generateInput(state, computed);
+}
+
+/* ---------- downloads ---------- */
+function download(name, text) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
+  a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+$("dlWps").onclick = () => download("namelist.wps", $("outWps").textContent);
+$("dlInput").onclick = () => download("namelist.input", $("outInput").textContent);
+$("copyBoth").onclick = () => {
+  const text = "! ===== namelist.wps =====\n" + $("outWps").textContent +
+               "\n! ===== namelist.input =====\n" + $("outInput").textContent;
+  if (navigator.clipboard) navigator.clipboard.writeText(text);
+};
+
+/* ---------- top-level bindings ---------- */
+$("proj").value = state.proj;
+$("proj").addEventListener("change", () => {
+  state.proj = $("proj").value;
+  const latlon = state.proj === "lat-lon";
+  $("truelat1").disabled = $("truelat2").disabled = $("standLon").disabled = latlon;
+  viewBox = null; refresh();
+});
+bindNum("refLat", () => state.refLat, v => state.refLat = v);
+bindNum("refLon", () => state.refLon, v => state.refLon = v);
+bindNum("truelat1", () => state.truelat1, v => state.truelat1 = v);
+bindNum("truelat2", () => state.truelat2, v => state.truelat2 = v);
+bindNum("standLon", () => state.standLon, v => state.standLon = v);
+bindNum("dx", () => state.dx, v => { state.dx = v; });
+bindNum("intervalSeconds", () => state.intervalSeconds, v => state.intervalSeconds = v);
+bindNum("eVert", () => state.eVert, v => state.eVert = Math.round(v));
+bindNum("numMetgridLevels", () => state.numMetgridLevels, v => state.numMetgridLevels = Math.round(v));
+bindNum("timeStep", () => state.timeStep, v => state.timeStep = v);
+bindNum("historyInterval", () => state.historyInterval, v => state.historyInterval = v);
+bindNum("cudt", () => state.cudt, v => state.cudt = v);
+num("start", state.start); num("end", state.end); num("geogPath", state.geogPath);
+$("start").addEventListener("input", () => { state.start = $("start").value; refresh(); });
+$("end").addEventListener("input", () => { state.end = $("end").value; refresh(); });
+$("geogPath").addEventListener("input", () => { state.geogPath = $("geogPath").value; refresh(); });
+
+buildCards();
+buildPhysics();
+refresh();
+</script>
+</body>
+</html>
